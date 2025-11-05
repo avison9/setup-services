@@ -1,8 +1,81 @@
+# name: Terraform Plan
+
+# on:
+#   repository_dispatch:
+#     types: [run-terraform-plan]
+
+# permissions:
+#   contents: read
+#   pull-requests: write
+#   issues: write
+
+# jobs:
+#   terraform-plan:
+#     runs-on: ubuntu-latest
+#     steps:
+#       # Checkout the PR branch that triggered this run
+#       - name: Checkout PR branch
+#         uses: actions/checkout@v4
+#         with:
+#           repository: ${{ github.event.client_payload.pr_head_repo }}
+#           ref: ${{ github.event.client_payload.pr_head_ref }}
+
+#       # Configure AWS credentials
+#       - name: Configure AWS Credentials
+#         uses: aws-actions/configure-aws-credentials@v4
+#         with:
+#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
+#           aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
+#           aws-region: eu-north-1
+
+#       # Setup Terraform
+#       - name: Setup Terraform
+#         uses: hashicorp/setup-terraform@v3
+#         with:
+#           terraform_version: 1.5.6
+
+#       # Terraform init
+#       - name: Terraform Init
+#         working-directory: run
+#         run: terraform init
+
+#       # Terraform plan
+#       - name: Terraform Plan
+#         id: plan
+#         working-directory: run
+#         run: |
+#           terraform plan -out=tfplan -no-color
+#           terraform show -no-color tfplan > plan.txt
+#         continue-on-error: true
+
+#       # Post plan output as PR comment
+#       - name: Post Plan to PR
+#         uses: actions/github-script@v7
+#         with:
+#           script: |
+#             const fs = require('fs');
+#             const planOutput = fs.readFileSync('run/plan.txt', 'utf8');
+#             const body = `Terraform Plan Output:\n\`\`\`hcl\n${planOutput}\n\`\`\``;
+#             github.rest.issues.createComment({
+#               issue_number: ${{ github.event.client_payload.pr_number }},
+#               owner: context.repo.owner,
+#               repo: context.repo.repo,
+#               body
+#             });
+#         env:
+#           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+#       # Fail if plan failed
+#       - name: Check Plan Status
+#         if: steps.plan.outcome == 'failure'
+#         run: exit 1
+
+
 name: Terraform Plan
 
 on:
-  repository_dispatch:
-    types: [run-terraform-plan]
+  pull_request_target:
+    types: [opened, reopened, synchronize, labeled]
 
 permissions:
   contents: read
@@ -12,13 +85,15 @@ permissions:
 jobs:
   terraform-plan:
     runs-on: ubuntu-latest
+
     steps:
-      # Checkout the PR branch that triggered this run
+      # Checkout the PR branch (important: use head_ref with pull_request_target)
       - name: Checkout PR branch
         uses: actions/checkout@v4
         with:
-          repository: ${{ github.event.client_payload.pr_head_repo }}
-          ref: ${{ github.event.client_payload.pr_head_ref }}
+          ref: ${{ github.event.pull_request.head.ref }}
+          repository: ${{ github.event.pull_request.head.repo.full_name }}
+          token: ${{ secrets.GITHUB_TOKEN }}
 
       # Configure AWS credentials
       - name: Configure AWS Credentials
@@ -34,12 +109,12 @@ jobs:
         with:
           terraform_version: 1.5.6
 
-      # Terraform init
+      # Terraform Init
       - name: Terraform Init
         working-directory: run
         run: terraform init
 
-      # Terraform plan
+      # Terraform Plan
       - name: Terraform Plan
         id: plan
         working-directory: run
@@ -48,7 +123,7 @@ jobs:
           terraform show -no-color tfplan > plan.txt
         continue-on-error: true
 
-      # Post plan output as PR comment
+      # Post Plan Output as Comment
       - name: Post Plan to PR
         uses: actions/github-script@v7
         with:
@@ -57,7 +132,7 @@ jobs:
             const planOutput = fs.readFileSync('run/plan.txt', 'utf8');
             const body = `Terraform Plan Output:\n\`\`\`hcl\n${planOutput}\n\`\`\``;
             github.rest.issues.createComment({
-              issue_number: ${{ github.event.client_payload.pr_number }},
+              issue_number: context.issue.number,
               owner: context.repo.owner,
               repo: context.repo.repo,
               body
