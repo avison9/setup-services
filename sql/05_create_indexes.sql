@@ -1,3 +1,4 @@
+---indexes creation
 \c :"tenant"-analytics
 
 -- Example indexes (adjust to real tables)
