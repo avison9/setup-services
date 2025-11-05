@@ -1,3 +1,4 @@
+---create schema file
 \c :"tenant"-analytics
 CREATE SCHEMA IF NOT EXISTS staging;
 CREATE SCHEMA IF NOT EXISTS processed;
