@@ -1,0 +1,26 @@
+name: Comment Trigger for Terraform Plan
+
+on:
+  issue_comment:
+    types: [created]
+
+permissions:
+  contents: read
+  issues: read
+
+jobs:
+  trigger-plan:
+    if: github.event.issue.pull_request && contains(github.event.comment.body, 'tf plan')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger Terraform Plan Workflow
+        uses: peter-evans/repository-dispatch@v3
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          event-type: run-terraform-plan
+          client-payload: |
+            {
+              "pr_number": "${{ github.event.issue.number }}",
+              "pr_head_ref": "${{ github.event.issue.pull_request.head.ref }}",
+              "pr_head_repo": "${{ github.event.issue.pull_request.head.repo.full_name }}"
+            }
