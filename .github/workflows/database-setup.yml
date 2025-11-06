@@ -321,25 +321,77 @@ jobs:
       # ──────────────────────────────────────────────────────────────
       # 3. Get DB Admin Credentials (Dynamic)
       # ──────────────────────────────────────────────────────────────
+      # - name: Get DB Admin Credentials
+      #   run: |
+      #     SECRET_NAME="prod-${TENANT}-database-rds-connection"
+      #     CREDS=$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --query SecretString --output text)
+      #     ADMIN_USER=$(echo "$CREDS" | jq -r .username)
+      #     ADMIN_PASS=$(echo "$CREDS" | jq -r .password)
+      #     echo "ADMIN_USER=$ADMIN_USER" >> $GITHUB_ENV
+      #     echo "ADMIN_PASS=$ADMIN_PASS" >> $GITHUB_ENV
+
       - name: Get DB Admin Credentials
         run: |
           SECRET_NAME="prod-${TENANT}-database-rds-connection"
-          CREDS=$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --query SecretString --output text)
-          ADMIN_USER=$(echo "$CREDS" | jq -r .username)
-          ADMIN_PASS=$(echo "$CREDS" | jq -r .password)
+          CREDS_JSON=$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --query SecretString --output text)
+          
+          # Extract username and password field
+          ADMIN_USER=$(echo "$CREDS_JSON" | jq -r .username)
+          PASS_FIELD=$(echo "$CREDS_JSON" | jq -r .password)
+
+          # If password is an ARN → fetch real password
+          if [[ "$PASS_FIELD" =~ ^arn:aws:secretsmanager: ]]; then
+            echo "Resolving nested secret ARN..."
+            REAL_PASS=$(aws secretsmanager get-secret-value --secret-id "$PASS_FIELD" --query SecretString --output text | jq -r .password)
+          else
+            REAL_PASS="$PASS_FIELD"
+          fi
+
           echo "ADMIN_USER=$ADMIN_USER" >> $GITHUB_ENV
-          echo "ADMIN_PASS=$ADMIN_PASS" >> $GITHUB_ENV
+          echo "ADMIN_PASS=$REAL_PASS" >> $GITHUB_ENV
 
       # ──────────────────────────────────────────────────────────────
       # 4. Install Tools & Get Bastion Key
       # ──────────────────────────────────────────────────────────────
-      - name: Install Tools & Bastion Key
+      # - name: Install Tools & Bastion Key
+      #   run: |
+      #     sudo apt-get update -y
+      #     sudo apt-get install -y postgresql-client openssh-client tar gzip jq
+      #     PEM=$(aws ssm get-parameter --name "/bastion/prod/db-admin/private-key" --with-decryption --query "Parameter.Value" --output text)
+      #     echo "$PEM" > bastion.pem
+      #     chmod 400 bastion.pem
+
+      - name: Install Tools & Prepare Bastion Key
         run: |
           sudo apt-get update -y
           sudo apt-get install -y postgresql-client openssh-client tar gzip jq
+
+          # Get private key
           PEM=$(aws ssm get-parameter --name "/bastion/prod/db-admin/private-key" --with-decryption --query "Parameter.Value" --output text)
           echo "$PEM" > bastion.pem
           chmod 400 bastion.pem
+
+          # Derive public key
+          PUB=$(ssh-keygen -y -f bastion.pem | awk '{print $1" "$2" db-admin-key"}')
+
+          # Add public key to bastion via SSM (idempotent)
+          aws ssm send-command \
+            --document-name "AWS-RunShellScript" \
+            --targets '[{"Key":"tag:Name","Values":["bastion-prod"]}]' \
+            --parameters '{
+              "commands": [
+                "mkdir -p /home/ec2-user/.ssh",
+                "echo \"$PUB\" >> /home/ec2-user/.ssh/authorized_keys",
+                "chmod 600 /home/ec2-user/.ssh/authorized_keys",
+                "chown -R ec2-user:ec2-user /home/ec2-user/.ssh"
+              ]
+            }' \
+            --comment "Add db-admin public key" \
+            --timeout-seconds 60 \
+            --max-concurrency "1" \
+            --max-errors "0"
+
+          echo "Public key added to bastion"
 
       # ──────────────────────────────────────────────────────────────
       # 5. Execute SQL via Bastion
