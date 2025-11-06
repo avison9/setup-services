@@ -7,19 +7,28 @@
 -- ------------------------------------------------------------------
 -- Set **boolean** flags (true / false) – this is the ONLY way \if works
 -- ------------------------------------------------------------------
-\set is_analytics 'false'
-\set is_ai 'false'
-\set is_application 'false'
+-- Set default
+\set is_analytics false
+\set is_ai false
+\set is_application false
 
-\if :'suffix' = 'analytics'
-    \set is_analytics 'true'
-\endif
-\if :'suffix' = 'ai'
-    \set is_ai 'true'
-\endif
-\if :'suffix' = 'application'
-    \set is_application 'true'
-\endif
+-- Use SQL to determine which one is true
+SELECT 
+    CASE :'suffix'
+        WHEN 'analytics' THEN true
+        WHEN 'ai' THEN false
+        ELSE false
+    END as is_analytics,
+    CASE :'suffix'
+        WHEN 'ai' THEN true
+        ELSE false
+    END as is_ai,
+    CASE :'suffix'
+        WHEN 'application' THEN true
+        ELSE false
+    END as is_application
+\gset
+
 
 -- ------------------------------------------------------------------
 -- ANALYTICS block
