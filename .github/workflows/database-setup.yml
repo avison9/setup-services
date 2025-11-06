@@ -213,65 +213,113 @@ jobs:
       # ──────────────────────────────────────────────────────────────
       # 5. Execute SQL via Bastion
       # ──────────────────────────────────────────────────────────────
+      # - name: Execute SQL via Bastion
+      #   run: |
+      #     mkdir -p sql_bundle
+      #     cp sql/01_create_databases.sql \
+      #        sql/02_create_login.sql \
+      #        sql/03_grant_permissions.sql \
+      #        sql/04_create_schemas.sql \
+      #        sql_bundle/
+
+      #     tar -czf sql_bundle.tar.gz sql_bundle/
+      #     scp -o StrictHostKeyChecking=no -i bastion.pem sql_bundle.tar.gz ubuntu@$BASTION_IP:/tmp/
+
+      #     ssh -o StrictHostKeyChecking=no -i bastion.pem ubuntu@$BASTION_IP << 'EOF'
+      #       set -e
+      #       cd /tmp
+      #       tar -xzf sql_bundle.tar.gz
+
+      #       export PGPASSWORD='$ADMIN_PASS'
+      #       export PSQL="psql -h $DB_ENDPOINT -U $ADMIN_USER -d postgres -v ON_ERROR_STOP=1"
+
+      #       # 1. Create 3 databases
+      #       echo "Creating 3 databases for $TENANT"
+      #       $PSQL -v tenant="$TENANT" -f sql_bundle/01_create_databases.sql
+
+      #       # 2. Create 4 LOGIN roles (using 02_create_login.sql)
+      #       echo "Creating login role: ${TENANT}-analytics"
+      #       $PSQL -v tenant="$TENANT" -v suffix="analytics" -v password="$PASS_ANALYTICS" -f sql_bundle/02_create_login.sql
+
+      #       echo "Creating login role: ${TENANT}-fivetran"
+      #       $PSQL -v tenant="$TENANT" -v suffix="fivetran" -v password="$PASS_FIVETRAN" -f sql_bundle/02_create_login.sql
+
+      #       echo "Creating login role: ${TENANT}-ai"
+      #       $PSQL -v tenant="$TENANT" -v suffix="ai" -v password="$PASS_AI" -f sql_bundle/02_create_login.sql
+
+      #       echo "Creating login role: ${TENANT}-application"
+      #       $PSQL -v tenant="$TENANT" -v suffix="application" -v password="$PASS_APP" -f sql_bundle/02_create_login.sql
+
+      #       # 3. Grant permissions + create DB roles (using 03_grant_permissions.sql)
+      #       #    This script uses :tenant and :suffix to:
+      #       #    - Connect to correct DB
+      #       #    - Create DB-local role
+      #       #    - Grant permissions
+      #       echo "Granting DB permissions for analytics (primary)"
+      #       $PSQL -v tenant="$TENANT" -v suffix="analytics" -f sql_bundle/03_grant_permissions.sql
+
+      #       echo "Granting DB permissions for fivetran (in analytics DB)"
+      #       $PSQL -v tenant="$TENANT" -v suffix="fivetran" -f sql_bundle/03_grant_permissions.sql
+
+      #       echo "Granting DB permissions for ai"
+      #       $PSQL -v tenant="$TENANT" -v suffix="ai" -f sql_bundle/03_grant_permissions.sql
+
+      #       echo "Granting DB permissions for application"
+      #       $PSQL -v tenant="$TENANT" -v suffix="application" -f sql_bundle/03_grant_permissions.sql
+
+      #       # 4. Create schemas (optional, if needed per DB)
+      #       for suffix in analytics fivetran ai application; do
+      #         echo "Creating schemas in ${TENANT}-${suffix} DB"
+      #         $PSQL -v tenant="$TENANT" -v suffix="$suffix" -f sql_bundle/04_create_schemas.sql
+      #       done
+
+      #       echo "All done: 3 DBs, 4 login roles, DB-local roles + grants"
+      #     EOF
+
       - name: Execute SQL via Bastion
         run: |
-          mkdir -p sql_bundle
-          cp sql/01_create_databases.sql \
-             sql/02_create_login.sql \
-             sql/03_grant_permissions.sql \
-             sql/04_create_schemas.sql \
-             sql_bundle/
+          set -euo pipefail
 
+          # 1. Bundle SQL files
+          mkdir -p sql_bundle
+          cp sql/*.sql sql_bundle/
           tar -czf sql_bundle.tar.gz sql_bundle/
+
+          # 2. Upload
           scp -o StrictHostKeyChecking=no -i bastion.pem sql_bundle.tar.gz ubuntu@$BASTION_IP:/tmp/
 
+          # 3. Run on bastion — QUOTES FIXED, PASSWORDS PASSED SAFELY
           ssh -o StrictHostKeyChecking=no -i bastion.pem ubuntu@$BASTION_IP << 'EOF'
-            set -e
+            set -euo pipefail
             cd /tmp
             tar -xzf sql_bundle.tar.gz
 
+            # ─── CRITICAL: Quote EVERYTHING that can contain dots ───
+            export PSQL="psql -h '$DB_ENDPOINT' -U '$ADMIN_USER' -d postgres -v ON_ERROR_STOP=1"
             export PGPASSWORD='$ADMIN_PASS'
-            export PSQL="psql -h $DB_ENDPOINT -U $ADMIN_USER -d postgres -v ON_ERROR_STOP=1"
 
-            # 1. Create 3 databases
             echo "Creating 3 databases for $TENANT"
             $PSQL -v tenant="$TENANT" -f sql_bundle/01_create_databases.sql
 
-            # 2. Create 4 LOGIN roles (using 02_create_login.sql)
-            echo "Creating login role: ${TENANT}-analytics"
-            $PSQL -v tenant="$TENANT" -v suffix="analytics" -v password="$PASS_ANALYTICS" -f sql_bundle/02_create_login.sql
-
-            echo "Creating login role: ${TENANT}-fivetran"
-            $PSQL -v tenant="$TENANT" -v suffix="fivetran" -v password="$PASS_FIVETRAN" -f sql_bundle/02_create_login.sql
-
-            echo "Creating login role: ${TENANT}-ai"
-            $PSQL -v tenant="$TENANT" -v suffix="ai" -v password="$PASS_AI" -f sql_bundle/02_create_login.sql
-
-            echo "Creating login role: ${TENANT}-application"
-            $PSQL -v tenant="$TENANT" -v suffix="application" -v password="$PASS_APP" -f sql_bundle/02_create_login.sql
-
-            # 3. Grant permissions + create DB roles (using 03_grant_permissions.sql)
-            #    This script uses :tenant and :suffix to:
-            #    - Connect to correct DB
-            #    - Create DB-local role
-            #    - Grant permissions
-            echo "Granting DB permissions for analytics (primary)"
-            $PSQL -v tenant="$TENANT" -v suffix="analytics" -f sql_bundle/03_grant_permissions.sql
-
-            echo "Granting DB permissions for fivetran (in analytics DB)"
-            $PSQL -v tenant="$TENANT" -v suffix="fivetran" -f sql_bundle/03_grant_permissions.sql
-
-            echo "Granting DB permissions for ai"
-            $PSQL -v tenant="$TENANT" -v suffix="ai" -f sql_bundle/03_grant_permissions.sql
-
-            echo "Granting DB permissions for application"
-            $PSQL -v tenant="$TENANT" -v suffix="application" -f sql_bundle/03_grant_permissions.sql
-
-            # 4. Create schemas (optional, if needed per DB)
+            # ─── 4 LOGIN ROLES ───
             for suffix in analytics fivetran ai application; do
-              echo "Creating schemas in ${TENANT}-${suffix} DB"
+              pass_var="PASS_$(echo "$suffix" | tr '[:lower:]' '[:upper:]' | tr '-' '_')"
+              password="$(printf '%s' "${!pass_var}")"
+              echo "Creating login role: $TENANT-$suffix"
+              $PSQL -v tenant="$TENANT" -v suffix="$suffix" -v password="$password" -f sql_bundle/02_create_login.sql
+            done
+
+            # ─── GRANT PERMISSIONS (per DB) ───
+            for suffix in analytics fivetran ai application; do
+              echo "Granting permissions for $suffix"
+              $PSQL -v tenant="$TENANT" -v suffix="$suffix" -f sql_bundle/03_grant_permissions.sql
+            done
+
+            # ─── CREATE SCHEMAS ───
+            for suffix in analytics fivetran ai application; do
+              echo "Creating schemas for $suffix"
               $PSQL -v tenant="$TENANT" -v suffix="$suffix" -f sql_bundle/04_create_schemas.sql
             done
 
-            echo "All done: 3 DBs, 4 login roles, DB-local roles + grants"
+            echo "SUCCESS: 3 databases + 4 roles + permissions + schemas created"
           EOF
