@@ -337,7 +337,7 @@ jobs:
           
           # Extract username and password field
           ADMIN_USER=$(echo "$CREDS_JSON" | jq -r .username)
-          PASS_FIELD=$(echo "$CREDS_JSON" | jq -r .password)
+          PASS_FIELD=$(echo "$CREDS_JSON" | jq -r .password_ref)
 
           # If password is an ARN → fetch real password
           if [[ "$PASS_FIELD" =~ ^arn:aws:secretsmanager: ]]; then
@@ -380,10 +380,10 @@ jobs:
             --targets '[{"Key":"tag:Name","Values":["bastion-prod"]}]' \
             --parameters '{
               "commands": [
-                "mkdir -p /home/ec2-user/.ssh",
-                "echo \"$PUB\" >> /home/ec2-user/.ssh/authorized_keys",
-                "chmod 600 /home/ec2-user/.ssh/authorized_keys",
-                "chown -R ec2-user:ec2-user /home/ec2-user/.ssh"
+                "mkdir -p /home/ubuntu/.ssh",
+                "echo \"$PUB\" >> /home/ubuntu/.ssh/authorized_keys",
+                "chmod 600 /home/ubuntu/.ssh/authorized_keys",
+                "chown -R ubuntu:ubuntu /home/ubuntu/.ssh"
               ]
             }' \
             --comment "Add db-admin public key" \
@@ -406,9 +406,9 @@ jobs:
              sql_bundle/
 
           tar -czf sql_bundle.tar.gz sql_bundle/
-          scp -o StrictHostKeyChecking=no -i bastion.pem sql_bundle.tar.gz ec2-user@$BASTION_IP:/tmp/
+          scp -o StrictHostKeyChecking=no -i bastion.pem sql_bundle.tar.gz ubuntu@$BASTION_IP:/tmp/
 
-          ssh -o StrictHostKeyChecking=no -i bastion.pem ec2-user@$BASTION_IP << 'EOF'
+          ssh -o StrictHostKeyChecking=no -i bastion.pem ubuntu@$BASTION_IP << 'EOF'
             set -e
             cd /tmp
             tar -xzf sql_bundle.tar.gz
