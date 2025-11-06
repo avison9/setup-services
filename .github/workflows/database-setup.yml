@@ -245,36 +245,36 @@ jobs:
       # 2. Save All 4 Roles to Secrets Manager
       # ──────────────────────────────────────────────────────────────
       - name: Save Analytics Role
+        env:
+          NAME: ${{ env.TENANT }}-analytics
+          SECRET: tenant-role-${{ env.TENANT }}-analytics
+          PAYLOAD: '{"username":"${{ env.TENANT }}-analytics","password":"${{ env.PASS_ANALYTICS }}"}'
         run: |
-          NAME="${TENANT}-analytics"
-          SECRET="tenant-role-${NAME}"
-          PAYLOAD="{\"username\":\"$NAME\",\"password\":\"$PASS_ANALYTICS\"}"
-
-          # Create secret with description + tags (only on first run)
+          # Create secret with correct tags (only if not exists)
           aws secretsmanager create-secret \
             --name "$SECRET" \
             --secret-string "$PAYLOAD" \
             --description "Primary login for $NAME DB" \
-            --tags 'Key=tenant,Value=${TENANT}' 'Key=db,Value=analytics' 'Key=purpose,Value=primary' \
-            || true   # ignore if already exists
+            --tags Key=tenant,Value=$TENANT Key=db,Value=analytics Key=purpose,Value=primary \
+            || true
 
-          # Always update the secret value (overwrites password)
+          # Always update value
           aws secretsmanager put-secret-value \
             --secret-id "$SECRET" \
             --secret-string "$PAYLOAD" \
             --version-stages AWSCURRENT
 
       - name: Save Fivetran Role
+        env:
+          NAME: ${{ env.TENANT }}-fivetran
+          SECRET: tenant-role-${{ env.TENANT }}-fivetran
+          PAYLOAD: '{"username":"${{ env.TENANT }}-fivetran","password":"${{ env.PASS_FIVETRAN }}"}'
         run: |
-          NAME="${TENANT}-fivetran"
-          SECRET="tenant-role-${NAME}"
-          PAYLOAD="{\"username\":\"$NAME\",\"password\":\"$PASS_FIVETRAN\"}"
-
           aws secretsmanager create-secret \
             --name "$SECRET" \
             --secret-string "$PAYLOAD" \
             --description "Fivetran sync role for $TENANT-analytics DB" \
-            --tags 'Key=tenant,Value=${TENANT}' 'Key=db,Value=analytics' 'Key=purpose,Value=fivetran' \
+            --tags Key=tenant,Value=$TENANT Key=db,Value=analytics Key=purpose,Value=fivetran \
             || true
 
           aws secretsmanager put-secret-value \
@@ -283,16 +283,16 @@ jobs:
             --version-stages AWSCURRENT
 
       - name: Save AI Role
+        env:
+          NAME: ${{ env.TENANT }}-ai
+          SECRET: tenant-role-${{ env.TENANT }}-ai
+          PAYLOAD: '{"username":"${{ env.TENANT }}-ai","password":"${{ env.PASS_AI }}"}'
         run: |
-          NAME="${TENANT}-ai"
-          SECRET="tenant-role-${NAME}"
-          PAYLOAD="{\"username\":\"$NAME\",\"password\":\"$PASS_AI\"}"
-
           aws secretsmanager create-secret \
             --name "$SECRET" \
             --secret-string "$PAYLOAD" \
             --description "Login for $NAME DB" \
-            --tags 'Key=tenant,Value=${TENANT}' 'Key=db,Value=ai' \
+            --tags Key=tenant,Value=$TENANT Key=db,Value=ai \
             || true
 
           aws secretsmanager put-secret-value \
@@ -301,16 +301,16 @@ jobs:
             --version-stages AWSCURRENT
 
       - name: Save Application Role
+        env:
+          NAME: ${{ env.TENANT }}-application
+          SECRET: tenant-role-${{ env.TENANT }}-application
+          PAYLOAD: '{"username":"${{ env.TENANT }}-application","password":"${{ env.PASS_APP }}"}'
         run: |
-          NAME="${TENANT}-application"
-          SECRET="tenant-role-${NAME}"
-          PAYLOAD="{\"username\":\"$NAME\",\"password\":\"$PASS_APP\"}"
-
           aws secretsmanager create-secret \
             --name "$SECRET" \
             --secret-string "$PAYLOAD" \
             --description "Login for $NAME DB" \
-            --tags 'Key=tenant,Value=${TENANT}' 'Key=db,Value=application' \
+            --tags Key=tenant,Value=$TENANT Key=db,Value=application \
             || true
 
           aws secretsmanager put-secret-value \
