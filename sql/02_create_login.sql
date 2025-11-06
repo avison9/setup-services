@@ -1,7 +1,7 @@
 -- 02_create_login.sql
 -- Idempotent role creation
 
-\echo Creating login role for :'tenant'-:'suffix'
+\echo Creating login role for :'tenant'_:'suffix'
 
 SELECT format(
   'CREATE ROLE %I WITH LOGIN PASSWORD %L',

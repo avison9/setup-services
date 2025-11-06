@@ -252,7 +252,7 @@ jobs:
             for suffix in analytics fivetran ai application; do
               pass_var="PASS_\$(echo "\$suffix" | tr '[:lower:]' '[:upper:]' | tr '-' '_')"
               password="\${!pass_var}"
-              echo "Creating login role: \$TENANT-\$suffix"
+              echo "Creating login role: \$TENANT_\$suffix"
               \$PSQL -v tenant="\$TENANT" -v suffix="\$suffix" -v password="\$password" -f sql_bundle/02_create_login.sql
             done
 
