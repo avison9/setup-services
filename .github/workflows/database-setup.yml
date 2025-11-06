@@ -225,52 +225,55 @@ jobs:
           # 2. Upload to bastion
           scp -o StrictHostKeyChecking=no -i bastion.pem sql_bundle.tar.gz ubuntu@$BASTION_IP:/tmp/
 
-          # 3. Run on bastion — variables passed as quoted heredoc
-          ssh -o StrictHostKeyChecking=no -i bastion.pem ubuntu@$BASTION_IP << EOF
+          # 3. Run on bastion — PGPASSWORD set BEFORE psql
+          ssh -o StrictHostKeyChecking=no -i bastion.pem ubuntu@$BASTION_IP << 'EOF'
             set -e
+
             cd /tmp
             tar -xzf sql_bundle.tar.gz
 
-            # Pass variables explicitly (no set -u)
-            DB_ENDPOINT="$DB_ENDPOINT"
-            ADMIN_USER="$ADMIN_USER"
-            ADMIN_PASS="$ADMIN_PASS"
-            TENANT="$TENANT"
-            PASS_ANALYTICS="$PASS_ANALYTICS"
-            PASS_FIVETRAN="$PASS_FIVETRAN"
-            PASS_AI="$PASS_AI"
-            PASS_APP="$PASS_APP"
+            # === Export variables safely ===
+            export DB_ENDPOINT="$DB_ENDPOINT"
+            export ADMIN_USER="$ADMIN_USER"
+            export ADMIN_PASS="$ADMIN_PASS"
+            export TENANT="$TENANT"
+            export PASS_ANALYTICS="$PASS_ANALYTICS"
+            export PASS_FIVETRAN="$PASS_FIVETRAN"
+            export PASS_AI="$PASS_AI"
+            export PASS_APP="$PASS_APP"
 
-            # PSQL command
-            PSQL="psql -h \$DB_ENDPOINT -U \$ADMIN_USER -d postgres -v ON_ERROR_STOP=1"
-            PGPASSWORD="\$ADMIN_PASS"
+            # === PSQL command ===
+            export PSQL="psql -h \$DB_ENDPOINT -U \$ADMIN_USER -d postgres -v ON_ERROR_STOP=1"
+
+            # === CRITICAL: Set PGPASSWORD BEFORE any psql call ===
+            export PGPASSWORD="\$ADMIN_PASS"
 
             echo "Creating 3 databases for \$TENANT"
             \$PSQL -v tenant="\$TENANT" -f sql_bundle/01_create_databases.sql
 
-            # Create login roles
+            # === Create login roles ===
             for suffix in analytics fivetran ai application; do
               case \$suffix in
-                analytics) pass="\$PASS_ANALYTICS" ;;
-                fivetran) pass="\$PASS_FIVETRAN" ;;
-                ai) pass="\$PASS_AI" ;;
+                analytics)   pass="\$PASS_ANALYTICS" ;;
+                fivetran)    pass="\$PASS_FIVETRAN" ;;
+                ai)          pass="\$PASS_AI" ;;
                 application) pass="\$PASS_APP" ;;
               esac
               echo "Creating login role: \$TENANT-\$suffix"
               \$PSQL -v tenant="\$TENANT" -v suffix="\$suffix" -v password="\$pass" -f sql_bundle/02_create_login.sql
             done
 
-            # Grant permissions
+            # === Grant permissions ===
             for suffix in analytics fivetran ai application; do
               echo "Granting permissions for \$suffix"
               \$PSQL -v tenant="\$TENANT" -v suffix="\$suffix" -f sql_bundle/03_grant_permissions.sql
             done
 
-            # Create schemas
+            # === Create schemas ===
             for suffix in analytics fivetran ai application; do
               echo "Creating schemas for \$suffix"
               \$PSQL -v tenant="\$TENANT" -v suffix="\$suffix" -f sql_bundle/04_create_schemas.sql
             done
 
-            echo "SUCCESS: 3 DBs, 4 roles, permissions, and schemas created!"
+            echo "SUCCESS: 3 databases, 4 roles, permissions, and schemas created!"
           EOF
