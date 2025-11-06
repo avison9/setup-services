@@ -7,6 +7,10 @@ output "RDS_REPLICA_ENDPOINT" {
   value = module.rds_database.replica_endpoint
 }
 
+output "BASTION_IP_ADDRESSES" {
+  value = module.bastions.bastion_ips
+}
+
 output "SECRET_ARN" {
   value = module.rds_database.secret_arn
 }
