@@ -1,18 +1,25 @@
-\if :suffix = analytics
-\connect :"tenant"-analytics
+-- Set boolean flags based on suffix
+\set is_analytics 0
 
-CREATE SCHEMA IF NOT EXISTS raw;
-CREATE SCHEMA IF NOT EXISTS dwh;
-CREATE SCHEMA IF NOT EXISTS data_access_layer;
+\if :'suffix' = 'analytics'
+    \set is_analytics 1
+\endif
 
--- Set search_path for administrator and tenant-analytics only
-SELECT format(
-  'ALTER ROLE %I SET search_path TO raw, dwh, data_access_layer, public',
-  'administrator'
-) \gexec;
+-- Schema creation only for analytics
+\if :is_analytics
+    \connect :"tenant"-analytics
+    CREATE SCHEMA IF NOT EXISTS raw;
+    CREATE SCHEMA IF NOT EXISTS dwh;
+    CREATE SCHEMA IF NOT EXISTS data_access_layer;
 
-SELECT format(
-  'ALTER ROLE %I SET search_path TO raw, dwh, data_access_layer, public',
-  :'tenant' || '-' || :'suffix'
-) \gexec;
+    -- Set search_path for administrator and tenant-analytics
+    SELECT format(
+      'ALTER ROLE %I SET search_path TO raw, dwh, data_access_layer, public',
+      'administrator'
+    ) \gexec;
+
+    SELECT format(
+      'ALTER ROLE %I SET search_path TO raw, dwh, data_access_layer, public',
+      :'tenant' || '_' || :'suffix'
+    ) \gexec;
 \endif
