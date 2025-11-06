@@ -5,9 +5,9 @@
 
 SELECT format(
   'CREATE ROLE %I WITH LOGIN PASSWORD %L',
-  :'tenant' || '-' || :'suffix',
+  :'tenant' || '_' || :'suffix',
   :'password'
 )
 WHERE NOT EXISTS (
-  SELECT 1 FROM pg_roles WHERE rolname = :'tenant' || '-' || :'suffix'
+  SELECT 1 FROM pg_roles WHERE rolname = :'tenant' || '_' || :'suffix'
 )\gexec

@@ -34,7 +34,7 @@ SELECT
 -- ANALYTICS block
 -- ------------------------------------------------------------------
 \if :is_analytics
-    \connect ":tenant-analytics"
+    \connect :"tenant"_analytics
     
 
     -- create role if missing
@@ -52,7 +52,7 @@ SELECT
 -- AI block
 -- ------------------------------------------------------------------
 \if :is_ai
-    \connect ":tenant-ai"
+    \connect :"tenant"_ai
 
     SELECT format('CREATE ROLE %I', :'tenant' || '_ai')
     WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'tenant' || '_ai')
@@ -68,7 +68,7 @@ SELECT
 -- APPLICATION block
 -- ------------------------------------------------------------------
 \if :is_application
-    \connect ":tenant-application"
+    \connect :"tenant"_application
 
     SELECT format('CREATE ROLE %I', :'tenant' || '_application')
     WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'tenant' || '_application')
@@ -82,3 +82,4 @@ SELECT
 
 \echo Done granting permissions for :'tenant'_:'suffix'
 
+---\connect :"tenant"_analytics
