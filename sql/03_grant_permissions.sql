@@ -44,8 +44,12 @@ SELECT
     WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'role_name')
     \gexec
 
-    -- grant all privileges on database
-    SELECT format('GRANT ALL ON DATABASE %I TO %I;', :'dbname', :'role_name') \gexec;
+    DO
+    $$
+    BEGIN
+       EXECUTE format('GRANT ALL ON DATABASE %I TO %I;', current_database(), :'role_name');
+    END
+    $$;
 
     -- grant default privileges on tables
     SELECT format(
@@ -69,7 +73,12 @@ SELECT
     WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'role_name')
     \gexec
 
-    SELECT format('GRANT ALL ON DATABASE %I TO %I;', :'dbname', :'role_name') \gexec;
+    DO
+    $$
+    BEGIN
+       EXECUTE format('GRANT ALL ON DATABASE %I TO %I;', current_database(), :'role_name');
+    END
+    $$;
 
     SELECT format(
         'ALTER DEFAULT PRIVILEGES IN SCHEMA public ' ||
@@ -92,7 +101,12 @@ SELECT
     WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'role_name')
     \gexec
 
-    SELECT format('GRANT ALL ON DATABASE %I TO %I;', :'dbname', :'role_name') \gexec;
+    DO
+    $$
+    BEGIN
+       EXECUTE format('GRANT ALL ON DATABASE %I TO %I;', current_database(), :'role_name');
+    END
+    $$;
 
     SELECT format(
         'ALTER DEFAULT PRIVILEGES IN SCHEMA public ' ||
