@@ -32,8 +32,9 @@ SELECT
 -- ------------------------------------------------------------------
 -- Prepare full names
 -- ------------------------------------------------------------------
-\set dbname :'tenant' || '_' || :'suffix'
-\set role_name :'tenant' || '_' || :'suffix'
+-- dynamically build database and role names
+SELECT :'tenant' || '_analytics' AS dbname \gset
+SELECT :'tenant' || '_analytics' AS role_name \gset
 
 -- ------------------------------------------------------------------
 -- ANALYTICS block
