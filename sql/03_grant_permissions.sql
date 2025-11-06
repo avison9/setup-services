@@ -30,17 +30,14 @@ SELECT
 \gset
 
 -- ------------------------------------------------------------------
--- Prepare full names
--- ------------------------------------------------------------------
--- dynamically build database and role names
-SELECT :'tenant' || '_analytics' AS dbname \gset
-SELECT :'tenant' || '_analytics' AS role_name \gset
-
--- ------------------------------------------------------------------
 -- ANALYTICS block
 -- ------------------------------------------------------------------
 \if :is_analytics
-    \connect :'dbname'
+    \connect :"tenant"_analytics
+
+    -- build role name dynamically
+    \set role_name :"tenant"_analytics
+    \set dbname :"tenant"_analytics
 
     -- create role if missing
     SELECT format('CREATE ROLE %I', :'role_name')
@@ -62,7 +59,11 @@ SELECT :'tenant' || '_analytics' AS role_name \gset
 -- AI block
 -- ------------------------------------------------------------------
 \if :is_ai
-    \connect :'dbname'
+    \connect :"tenant"_ai
+
+    -- build role name dynamically
+    \set role_name :"tenant"_ai
+    \set dbname :"tenant"_ai
 
     SELECT format('CREATE ROLE %I', :'role_name')
     WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'role_name')
@@ -81,7 +82,11 @@ SELECT :'tenant' || '_analytics' AS role_name \gset
 -- APPLICATION block
 -- ------------------------------------------------------------------
 \if :is_application
-    \connect :'dbname'
+    \connect :"tenant"_application
+
+    -- build role name dynamically
+    \set role_name :"tenant"_application
+    \set dbname :"tenant"_application
 
     SELECT format('CREATE ROLE %I', :'role_name')
     WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'role_name')

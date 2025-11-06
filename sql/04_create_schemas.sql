@@ -13,9 +13,9 @@ SELECT
 \gset
 
 \if :is_analytics
-    -- dynamically build database and role names
-    SELECT :'tenant' || '_analytics' AS dbname \gset
-    SELECT :'tenant' || '_analytics' AS role_name \gset
+    -- build role name dynamically
+    \set role_name :"tenant"_analytics
+    \set dbname :"tenant"_analytics
 
     \connect :'dbname'
 
