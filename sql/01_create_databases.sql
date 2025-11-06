@@ -1,17 +1,26 @@
 -- 01_create_databases.sql
--- Create 3 tenant databases if they do not exist
+-- Creates 3 tenant databases if they don't exist
+-- Called with: -v tenant=oraion
 
 DO $$
+DECLARE
+   db_name TEXT;
 BEGIN
-   IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'tenant' || '-analytics') THEN
-      CREATE DATABASE :"tenant-analytics";
+   -- analytics
+   db_name := :'tenant' || '-analytics';
+   IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = db_name) THEN
+      EXECUTE 'CREATE DATABASE "' || db_name || '"';
    END IF;
 
-   IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'tenant' || '-ai') THEN
-      CREATE DATABASE :"tenant-ai";
+   -- ai
+   db_name := :'tenant' || '-ai';
+   IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = db_name) THEN
+      EXECUTE 'CREATE DATABASE "' || db_name || '"';
    END IF;
 
-   IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = :'tenant' || '-application') THEN
-      CREATE DATABASE :"tenant-application";
+   -- application
+   db_name := :'tenant' || '-application';
+   IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = db_name) THEN
+      EXECUTE 'CREATE DATABASE "' || db_name || '"';
    END IF;
 END $$;
