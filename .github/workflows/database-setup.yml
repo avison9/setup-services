@@ -217,40 +217,38 @@ jobs:
         run: |
           set -euo pipefail
 
-          # 1. Bundle SQL files
+          # Bundle SQL
           mkdir -p sql_bundle
           cp sql/*.sql sql_bundle/
           tar -czf sql_bundle.tar.gz sql_bundle/
 
-          # 2. Upload to bastion
+          # Upload
           scp -o StrictHostKeyChecking=no -i bastion.pem sql_bundle.tar.gz ubuntu@$BASTION_IP:/tmp/
 
-          # 3. Execute on bastion — variables passed explicitly, no unbound errors
+          # Execute — PASS VARIABLES EXPLICITLY, NO QUOTES IN HOST
           ssh -o StrictHostKeyChecking=no -i bastion.pem ubuntu@$BASTION_IP << EOF
-            set -e
+            set -euo pipefail
             cd /tmp
             tar -xzf sql_bundle.tar.gz
 
-            # Inject variables safely into the remote shell
-            export DB_ENDPOINT='$DB_ENDPOINT'
-            export ADMIN_USER='$ADMIN_USER'
-            export ADMIN_PASS='$ADMIN_PASS'
-            export TENANT='$TENANT'
-            export PASS_ANALYTICS='$PASS_ANALYTICS'
-            export PASS_FIVETRAN='$PASS_FIVETRAN'
-            export PASS_AI='$PASS_AI'
-            export PASS_APP='$PASS_APP'
+            # === PASS ALL VARIABLES SAFELY ===
+            export DB_ENDPOINT="$DB_ENDPOINT"
+            export ADMIN_USER="$ADMIN_USER"
+            export ADMIN_PASS="$ADMIN_PASS"
+            export TENANT="$TENANT"
+            export PASS_ANALYTICS="$PASS_ANALYTICS"
+            export PASS_FIVETRAN="$PASS_FIVETRAN"
+            export PASS_AI="$PASS_AI"
+            export PASS_APP="$PASS_APP"
 
-            # Now safe to use set -u
-            set -u
-
-            export PSQL="psql -h '\$DB_ENDPOINT' -U '\$ADMIN_USER' -d postgres -v ON_ERROR_STOP=1"
+            # === PSQL COMMAND — NO SINGLE QUOTES AROUND HOST/USER ===
+            export PSQL="psql -h \$DB_ENDPOINT -U \$ADMIN_USER -d postgres -v ON_ERROR_STOP=1"
             export PGPASSWORD="\$ADMIN_PASS"
 
             echo "Creating 3 databases for \$TENANT"
             \$PSQL -v tenant="\$TENANT" -f sql_bundle/01_create_databases.sql
 
-            # Create login roles
+            # === CREATE LOGIN ROLES ===
             for suffix in analytics fivetran ai application; do
               pass_var="PASS_\$(echo "\$suffix" | tr '[:lower:]' '[:upper:]' | tr '-' '_')"
               password="\${!pass_var}"
@@ -258,13 +256,13 @@ jobs:
               \$PSQL -v tenant="\$TENANT" -v suffix="\$suffix" -v password="\$password" -f sql_bundle/02_create_login.sql
             done
 
-            # Grant permissions
+            # === GRANT PERMISSIONS ===
             for suffix in analytics fivetran ai application; do
               echo "Granting permissions for \$suffix"
               \$PSQL -v tenant="\$TENANT" -v suffix="\$suffix" -f sql_bundle/03_grant_permissions.sql
             done
 
-            # Create schemas
+            # === CREATE SCHEMAS ===
             for suffix in analytics fivetran ai application; do
               echo "Creating schemas for \$suffix"
               \$PSQL -v tenant="\$TENANT" -v suffix="\$suffix" -f sql_bundle/04_create_schemas.sql
