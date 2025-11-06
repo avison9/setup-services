@@ -1,12 +1,12 @@
 region             = "eu-north-1"
-vpc_name           = "data-engineering-vpc"
+vpc_name           = "oraion-vpc"
 environment        = "prod"
 cidr_block         = "10.10.0.0/16"
 availability_zones = ["eu-north-1a", "eu-north-1b", "eu-north-1c"]
 public_subnets     = ["10.10.1.0/24", "10.10.2.0/24", "10.10.3.0/24"]
 private_subnets    = ["10.10.11.0/24", "10.10.12.0/24", "10.10.13.0/24"]
 #----------------------------------------------------RDS Variables-----------------------------------------------
-identifier              = "test-dbs-client"
+identifier              = "oraion-database"
 engine                  = "postgres"
 engine_version          = "17.2"
 instance_class          = "db.m5.large"
