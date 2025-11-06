@@ -1,8 +1,7 @@
 -- 04_create_schemas.sql
--- Creates base schemas and sets role search_path
--- Called with: -v tenant=oraion -v suffix=analytics
+-- Creates schemas & sets search_path, safely
 
-\echo Creating schemas and configuring role for :'tenant'-:'suffix'
+\echo Ensuring schemas and search path for :'tenant'-:'suffix'
 
 CREATE SCHEMA IF NOT EXISTS raw;
 CREATE SCHEMA IF NOT EXISTS dwh;
