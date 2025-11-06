@@ -222,15 +222,15 @@ jobs:
       - name: Generate Login Role Passwords
         id: gen-pass
         run: |
-          PASS_ANALYTICS=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)
-          PASS_FIVETRAN=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)
-          PASS_AI=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)
-          PASS_APP=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)
+          set -euo pipefail   # safety
 
-          echo "PASS_ANALYTICS=$PASS_ANALYTICS" >> $GITHUB_ENV
-          echo "PASS_FIVETRAN=$PASS_FIVETRAN" >> $GITHUB_ENV
-          echo "PASS_AI=$PASS_AI" >> $GITHUB_ENV
-          echo "PASS_APP=$PASS_APP" >> $GITHUB_ENV
+          # Generate exactly 32 chars, write to a temp file first
+          gen_pw() { LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32; }
+
+          PASS_ANALYTICS=$(gen_pw); echo "PASS_ANALYTICS=$PASS_ANALYTICS" >> "$GITHUB_ENV"
+          PASS_FIVETRAN=$(gen_pw);   echo "PASS_FIVETRAN=$PASS_FIVETRAN"   >> "$GITHUB_ENV"
+          PASS_AI=$(gen_pw);         echo "PASS_AI=$PASS_AI"               >> "$GITHUB_ENV"
+          PASS_APP=$(gen_pw);        echo "PASS_APP=$PASS_APP"             >> "$GITHUB_ENV"
 
       # ──────────────────────────────────────────────────────────────
       # 2. Save All 4 Roles to Secrets Manager
@@ -239,49 +239,75 @@ jobs:
         run: |
           NAME="${TENANT}-analytics"
           SECRET="tenant-role-${NAME}"
-          aws secretsmanager create-secret --name "$SECRET" \
-            --secret-string "{\"username\":\"$NAME\",\"password\":\"$PASS_ANALYTICS\"}" \
+          PAYLOAD="{\"username\":\"$NAME\",\"password\":\"$PASS_ANALYTICS\"}"
+
+          # Try to create and ignore “already exists”
+          aws secretsmanager create-secret \
+            --name "$SECRET" \
+            --secret-string "$PAYLOAD" \
             --description "Primary login for $NAME DB" \
             --tags Key=tenant,Value=$TENANT Key=db,Value=analytics Key=purpose,Value=primary \
-            --overwrite || true
-          aws secretsmanager update-secret --secret-id "$SECRET" \
-            --secret-string "{\"username\":\"$NAME\",\"password\":\"$PASS_ANALYTICS\"}"
+            --no-overwrite || true
+
+          # Always overwrite the value
+          aws secretsmanager put-secret-value \
+            --secret-id "$SECRET" \
+            --secret-string "$PAYLOAD" \
+            --version-stages AWSCURRENT
 
       - name: Save Fivetran Role
         run: |
           NAME="${TENANT}-fivetran"
           SECRET="tenant-role-${NAME}"
-          aws secretsmanager create-secret --name "$SECRET" \
-            --secret-string "{\"username\":\"$NAME\",\"password\":\"$PASS_FIVETRAN\"}" \
+          PAYLOAD="{\"username\":\"$NAME\",\"password\":\"$PASS_FIVETRAN\"}"
+
+          aws secretsmanager create-secret \
+            --name "$SECRET" \
+            --secret-string "$PAYLOAD" \
             --description "Fivetran sync role for $TENANT-analytics DB" \
             --tags Key=tenant,Value=$TENANT Key=db,Value=analytics Key=purpose,Value=fivetran \
-            --overwrite || true
-          aws secretsmanager update-secret --secret-id "$SECRET" \
-            --secret-string "{\"username\":\"$NAME\",\"password\":\"$PASS_FIVETRAN\"}"
+            --no-overwrite || true
+
+          aws secretsmanager put-secret-value \
+            --secret-id "$SECRET" \
+            --secret-string "$PAYLOAD" \
+            --version-stages AWSCURRENT
 
       - name: Save AI Role
         run: |
           NAME="${TENANT}-ai"
           SECRET="tenant-role-${NAME}"
-          aws secretsmanager create-secret --name "$SECRET" \
-            --secret-string "{\"username\":\"$NAME\",\"password\":\"$PASS_AI\"}" \
+          PAYLOAD="{\"username\":\"$NAME\",\"password\":\"$PASS_AI\"}"
+
+          aws secretsmanager create-secret \
+            --name "$SECRET" \
+            --secret-string "$PAYLOAD" \
             --description "Login for $NAME DB" \
             --tags Key=tenant,Value=$TENANT Key=db,Value=ai \
-            --overwrite || true
-          aws secretsmanager update-secret --secret-id "$SECRET" \
-            --secret-string "{\"username\":\"$NAME\",\"password\":\"$PASS_AI\"}"
+            --no-overwrite || true
+
+          aws secretsmanager put-secret-value \
+            --secret-id "$SECRET" \
+            --secret-string "$PAYLOAD" \
+            --version-stages AWSCURRENT
 
       - name: Save Application Role
         run: |
           NAME="${TENANT}-application"
           SECRET="tenant-role-${NAME}"
-          aws secretsmanager create-secret --name "$SECRET" \
-            --secret-string "{\"username\":\"$NAME\",\"password\":\"$PASS_APP\"}" \
+          PAYLOAD="{\"username\":\"$NAME\",\"password\":\"$PASS_APP\"}"
+
+          aws secretsmanager create-secret \
+            --name "$SECRET" \
+            --secret-string "$PAYLOAD" \
             --description "Login for $NAME DB" \
             --tags Key=tenant,Value=$TENANT Key=db,Value=application \
-            --overwrite || true
-          aws secretsmanager update-secret --secret-id "$SECRET" \
-            --secret-string "{\"username\":\"$NAME\",\"password\":\"$PASS_APP\"}"
+            --no-overwrite || true
+
+          aws secretsmanager put-secret-value \
+            --secret-id "$SECRET" \
+            --secret-string "$PAYLOAD" \
+            --version-stages AWSCURRENT
 
       # ──────────────────────────────────────────────────────────────
       # 3. Get DB Admin Credentials (Dynamic)
