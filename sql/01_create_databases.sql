@@ -1,5 +1,6 @@
 -- 01_create_databases.sql
 -- Idempotent database creation
+
 \echo Creating databases for tenant :'tenant'
 
 -- Analytics database
