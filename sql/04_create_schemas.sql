@@ -1,10 +1,10 @@
 -- ------------------------------------------------------------------
 -- Schema creation – **only** for analytics
 -- ------------------------------------------------------------------
-\set is_analytics  false
+\set is_analytics 'false'
 
-\if :suffix = analytics
-    \set is_analytics true
+\if :'suffix' = 'analytics'
+    \set is_analytics 'true'
 \endif
 
 \if :is_analytics

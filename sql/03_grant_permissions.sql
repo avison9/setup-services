@@ -7,16 +7,18 @@
 -- ------------------------------------------------------------------
 -- Set **boolean** flags (true / false) – this is the ONLY way \if works
 -- ------------------------------------------------------------------
-\set is_analytics  false
-\set is_ai         false
-\set is_application false
+\set is_analytics 'false'
+\set is_ai 'false'
+\set is_application 'false'
 
-\if :suffix = analytics
-    \set is_analytics true
-\elif :suffix = ai
-    \set is_ai true
-\elif :suffix = application
-    \set is_application true
+\if :'suffix' = 'analytics'
+    \set is_analytics 'true'
+\endif
+\if :'suffix' = 'ai'
+    \set is_ai 'true'
+\endif
+\if :'suffix' = 'application'
+    \set is_application 'true'
 \endif
 
 -- ------------------------------------------------------------------
