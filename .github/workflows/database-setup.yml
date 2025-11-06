@@ -225,13 +225,13 @@ jobs:
           # 2. Upload to bastion
           scp -o StrictHostKeyChecking=no -i bastion.pem sql_bundle.tar.gz ubuntu@$BASTION_IP:/tmp/
 
-          # 3. Run on bastion — use full psql command every time
+          # 3. Run on bastion — FULL psql with explicit -U and -h
           ssh -o StrictHostKeyChecking=no -i bastion.pem ubuntu@$BASTION_IP << 'EOF'
             set -e
             cd /tmp
             tar -xzf sql_bundle.tar.gz
 
-            # === Export variables safely ===
+            # === Export variables ===
             DB_ENDPOINT="$DB_ENDPOINT"
             ADMIN_USER="$ADMIN_USER"
             ADMIN_PASS="$ADMIN_PASS"
@@ -241,11 +241,11 @@ jobs:
             PASS_AI="$PASS_AI"
             PASS_APP="$PASS_APP"
 
-            # === Full psql command every time (no $PSQL variable) ===
+            # === 1. Create 3 databases ===
             echo "Creating 3 databases for $TENANT"
             PGPASSWORD="$ADMIN_PASS" psql -h "$DB_ENDPOINT" -U "$ADMIN_USER" -d postgres -v ON_ERROR_STOP=1 -v tenant="$TENANT" -f sql_bundle/01_create_databases.sql
 
-            # === Create login roles ===
+            # === 2. Create login roles ===
             for suffix in analytics fivetran ai application; do
               case $suffix in
                 analytics)   pass="$PASS_ANALYTICS" ;;
@@ -257,16 +257,16 @@ jobs:
               PGPASSWORD="$ADMIN_PASS" psql -h "$DB_ENDPOINT" -U "$ADMIN_USER" -d postgres -v ON_ERROR_STOP=1 -v tenant="$TENANT" -v suffix="$suffix" -v password="$pass" -f sql_bundle/02_create_login.sql
             done
 
-            # === Grant permissions ===
+            # === 3. Grant permissions ===
             for suffix in analytics fivetran ai application; do
               echo "Granting permissions for $suffix"
               PGPASSWORD="$ADMIN_PASS" psql -h "$DB_ENDPOINT" -U "$ADMIN_USER" -d postgres -v ON_ERROR_STOP=1 -v tenant="$TENANT" -v suffix="$suffix" -f sql_bundle/03_grant_permissions.sql
             done
 
-            # === Create schemas ===
+            # === 4. Create schemas ===
             for suffix in analytics fivetran ai application; do
               echo "Creating schemas for $suffix"
-              PGPASSWORD="$ADMIN_PASS" psql -h "$DB_ENDPOINT" -U "$ADMIN_USER" -d postgres -v ON_ERROR_STOP=1 -v tenant="$TENANT" -v suffix="$suffix" -f sql_bundle/04_create_schemas.sql
+              PGPASSWORD="$ADMIN_PASS" psql -h "$DB_ENDPOINT" -U "$ADMIN_USER" -d "$TENANT-$suffix" -v ON_ERROR_STOP=1 -v tenant="$TENANT" -v suffix="$suffix" -f sql_bundle/04_create_schemas.sql
             done
 
             echo "SUCCESS: 3 databases, 4 roles, permissions, and schemas created!"
