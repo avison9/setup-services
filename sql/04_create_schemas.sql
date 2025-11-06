@@ -1,11 +1,17 @@
 -- ------------------------------------------------------------------
 -- Schema creation – **only** for analytics
 -- ------------------------------------------------------------------
-\set is_analytics 'false'
+-- Set default
+\set is_analytics false
 
-\if :'suffix' = 'analytics'
-    \set is_analytics 'true'
-\endif
+-- Use SQL to determine which one is true
+SELECT 
+    CASE :'suffix'
+        WHEN 'analytics' THEN true
+        WHEN 'ai' THEN false
+        ELSE false
+    END as is_analytics
+\gset
 
 \if :is_analytics
     \connect :"tenant"_analytics
