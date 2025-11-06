@@ -250,19 +250,13 @@ jobs:
           SECRET="tenant-role-${NAME}"
           PAYLOAD="{\"username\":\"$NAME\",\"password\":\"$PASS_ANALYTICS\"}"
 
-          # Try to create and ignore “already exists”
-          aws secretsmanager create-secret \
-            --name "$SECRET" \
-            --secret-string "$PAYLOAD" \
-            --description "Primary login for $NAME DB" \
-            --tags Key=tenant,Value=$TENANT Key=db,Value=analytics Key=purpose,Value=primary \
-            --no-overwrite || true
-
-          # Always overwrite the value
           aws secretsmanager put-secret-value \
             --secret-id "$SECRET" \
             --secret-string "$PAYLOAD" \
-            --version-stages AWSCURRENT
+            --description "Primary login for $NAME DB" \
+            --tags Key=tenant,Value=$TENANT Key=db,Value=analytics Key=purpose,Value=primary \
+            --version-stages AWSCURRENT \
+            || true   # ignore “secret does not exist” on first run (it will be created)
 
       - name: Save Fivetran Role
         run: |
@@ -270,17 +264,13 @@ jobs:
           SECRET="tenant-role-${NAME}"
           PAYLOAD="{\"username\":\"$NAME\",\"password\":\"$PASS_FIVETRAN\"}"
 
-          aws secretsmanager create-secret \
-            --name "$SECRET" \
-            --secret-string "$PAYLOAD" \
-            --description "Fivetran sync role for $TENANT-analytics DB" \
-            --tags Key=tenant,Value=$TENANT Key=db,Value=analytics Key=purpose,Value=fivetran \
-            --no-overwrite || true
-
           aws secretsmanager put-secret-value \
             --secret-id "$SECRET" \
             --secret-string "$PAYLOAD" \
-            --version-stages AWSCURRENT
+            --description "Fivetran sync role for $TENANT-analytics DB" \
+            --tags Key=tenant,Value=$TENANT Key=db,Value=analytics Key=purpose,Value=fivetran \
+            --version-stages AWSCURRENT \
+            || true
 
       - name: Save AI Role
         run: |
@@ -288,17 +278,13 @@ jobs:
           SECRET="tenant-role-${NAME}"
           PAYLOAD="{\"username\":\"$NAME\",\"password\":\"$PASS_AI\"}"
 
-          aws secretsmanager create-secret \
-            --name "$SECRET" \
-            --secret-string "$PAYLOAD" \
-            --description "Login for $NAME DB" \
-            --tags Key=tenant,Value=$TENANT Key=db,Value=ai \
-            --no-overwrite || true
-
           aws secretsmanager put-secret-value \
             --secret-id "$SECRET" \
             --secret-string "$PAYLOAD" \
-            --version-stages AWSCURRENT
+            --description "Login for $NAME DB" \
+            --tags Key=tenant,Value=$TENANT Key=db,Value=ai \
+            --version-stages AWSCURRENT \
+            || true
 
       - name: Save Application Role
         run: |
@@ -306,17 +292,13 @@ jobs:
           SECRET="tenant-role-${NAME}"
           PAYLOAD="{\"username\":\"$NAME\",\"password\":\"$PASS_APP\"}"
 
-          aws secretsmanager create-secret \
-            --name "$SECRET" \
-            --secret-string "$PAYLOAD" \
-            --description "Login for $NAME DB" \
-            --tags Key=tenant,Value=$TENANT Key=db,Value=application \
-            --no-overwrite || true
-
           aws secretsmanager put-secret-value \
             --secret-id "$SECRET" \
             --secret-string "$PAYLOAD" \
-            --version-stages AWSCURRENT
+            --description "Login for $NAME DB" \
+            --tags Key=tenant,Value=$TENANT Key=db,Value=application \
+            --version-stages AWSCURRENT \
+            || true
 
       # ──────────────────────────────────────────────────────────────
       # 3. Get DB Admin Credentials (Dynamic)
