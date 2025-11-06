@@ -1,39 +1,72 @@
 -- 03_grant_permissions.sql
--- Connects to correct DB, creates local role, grants access
+-- Grants permissions to tenant-specific roles
 -- Called with: -v tenant=oraion -v suffix=analytics
 
--- analytics
-\c :"tenant"-analytics
-DO $$
-BEGIN
-   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'tenant' || '-' || :'suffix') THEN
-      CREATE ROLE :"tenant-suffix";
-   END IF;
-   GRANT ALL ON DATABASE :"tenant"-analytics TO :"tenant-suffix";
-   ALTER DEFAULT PRIVILEGES IN SCHEMA public, staging, processed, reporting
-         GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO :"tenant-suffix";
-END $$;
+\echo === Granting permissions for tenant :'tenant' / suffix :'suffix' ===
 
--- ai
-\c :"tenant"-ai
-DO $$
-BEGIN
-   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'tenant' || '-' || :'suffix') THEN
-      CREATE ROLE :"tenant-suffix";
-   END IF;
-   GRANT ALL ON DATABASE :"tenant"-ai TO :"tenant-suffix";
-   ALTER DEFAULT PRIVILEGES IN SCHEMA public
-         GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO :"tenant-suffix";
-END $$;
+-- ──────────────────────────────────────────────────────────────
+-- ANALYTICS
+-- ──────────────────────────────────────────────────────────────
+\if :'suffix' = 'analytics'
+\connect :"tenant"-analytics
 
--- application
-\c :"tenant"-application
-DO $$
-BEGIN
-   IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'tenant' || '-' || :'suffix') THEN
-      CREATE ROLE :"tenant-suffix";
-   END IF;
-   GRANT ALL ON DATABASE :"tenant"-application TO :"tenant-suffix";
-   ALTER DEFAULT PRIVILEGES IN SCHEMA public
-         GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO :"tenant-suffix";
-END $$;
+-- Create role if missing
+SELECT format('CREATE ROLE %I', :'tenant' || '-' || :'suffix')
+WHERE NOT EXISTS (
+  SELECT 1 FROM pg_roles WHERE rolname = :'tenant' || '-' || :'suffix'
+)\gexec
+
+-- Grant database privileges
+SELECT format('GRANT ALL ON DATABASE %I TO %I',
+  :'tenant' || '-analytics',
+  :'tenant' || '-' || :'suffix'
+)\gexec
+
+-- Default privileges in analytics schemas
+ALTER DEFAULT PRIVILEGES IN SCHEMA public, staging, processed, reporting
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO :"tenant"-:"suffix";
+\endif
+
+
+-- ──────────────────────────────────────────────────────────────
+-- AI
+-- ──────────────────────────────────────────────────────────────
+\if :'suffix' = 'ai'
+\connect :"tenant"-ai
+
+SELECT format('CREATE ROLE %I', :'tenant' || '-' || :'suffix')
+WHERE NOT EXISTS (
+  SELECT 1 FROM pg_roles WHERE rolname = :'tenant' || '-' || :'suffix'
+)\gexec
+
+SELECT format('GRANT ALL ON DATABASE %I TO %I',
+  :'tenant' || '-ai',
+  :'tenant' || '-' || :'suffix'
+)\gexec
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO :"tenant"-:"suffix";
+\endif
+
+
+-- ──────────────────────────────────────────────────────────────
+-- APPLICATION
+-- ──────────────────────────────────────────────────────────────
+\if :'suffix' = 'application'
+\connect :"tenant"-application
+
+SELECT format('CREATE ROLE %I', :'tenant' || '-' || :'suffix')
+WHERE NOT EXISTS (
+  SELECT 1 FROM pg_roles WHERE rolname = :'tenant' || '-' || :'suffix'
+)\gexec
+
+SELECT format('GRANT ALL ON DATABASE %I TO %I',
+  :'tenant' || '-application',
+  :'tenant' || '-' || :'suffix'
+)\gexec
+
+ALTER DEFAULT PRIVILEGES IN SCHEMA public
+  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO :"tenant"-:"suffix";
+\endif
+
+\echo === Completed grants for :'tenant'-:'suffix' ===

@@ -2,23 +2,16 @@
 -- Creates 3 tenant databases if they don't exist
 -- Called with: -v tenant=oraion
 
-DO $$
-DECLARE
-   tenant_name TEXT := current_setting('tenant');
-   db_name TEXT;
-BEGIN
-   db_name := tenant_name || '-analytics';
-   IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = db_name) THEN
-      EXECUTE format('CREATE DATABASE %I', db_name);
-   END IF;
+\echo Creating databases for tenant :'tenant'
 
-   db_name := tenant_name || '-ai';
-   IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = db_name) THEN
-      EXECUTE format('CREATE DATABASE %I', db_name);
-   END IF;
+-- analytics
+SELECT 'CREATE DATABASE "' || :'tenant' || '-analytics"' 
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = :'tenant' || '-analytics')\gexec
 
-   db_name := tenant_name || '-application';
-   IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = db_name) THEN
-      EXECUTE format('CREATE DATABASE %I', db_name);
-   END IF;
-END $$;
+-- ai
+SELECT 'CREATE DATABASE "' || :'tenant' || '-ai"' 
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = :'tenant' || '-ai')\gexec
+
+-- application
+SELECT 'CREATE DATABASE "' || :'tenant' || '-application"' 
+WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = :'tenant' || '-application')\gexec
