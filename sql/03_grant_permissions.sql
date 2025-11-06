@@ -29,57 +29,70 @@ SELECT
     END as is_application
 \gset
 
+-- ------------------------------------------------------------------
+-- Prepare full names
+-- ------------------------------------------------------------------
+\set dbname :'tenant' || '_' || :'suffix'
+\set role_name :'tenant' || '_' || :'suffix'
 
 -- ------------------------------------------------------------------
 -- ANALYTICS block
 -- ------------------------------------------------------------------
 \if :is_analytics
-    \connect :"tenant"_analytics
-    
+    \connect :'dbname'
 
     -- create role if missing
-    SELECT format('CREATE ROLE %I', :'tenant' || '_analytics')
-    WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'tenant' || '_analytics')
+    SELECT format('CREATE ROLE %I', :'role_name')
+    WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'role_name')
     \gexec
 
-    GRANT ALL ON DATABASE :"tenant"_analytics TO :"tenant"_analytics;
+    -- grant all privileges on database
+    SELECT format('GRANT ALL ON DATABASE %I TO %I;', :'dbname', :'role_name') \gexec;
 
-    ALTER DEFAULT PRIVILEGES IN SCHEMA public, raw, dwh, data_access_layer
-        GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO :"tenant"_analytics;
+    -- grant default privileges on tables
+    SELECT format(
+        'ALTER DEFAULT PRIVILEGES IN SCHEMA public, raw, dwh, data_access_layer ' ||
+        'GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO %I;',
+        :'role_name'
+    ) \gexec;
 \endif
 
 -- ------------------------------------------------------------------
 -- AI block
 -- ------------------------------------------------------------------
 \if :is_ai
-    \connect :"tenant"_ai
+    \connect :'dbname'
 
-    SELECT format('CREATE ROLE %I', :'tenant' || '_ai')
-    WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'tenant' || '_ai')
+    SELECT format('CREATE ROLE %I', :'role_name')
+    WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'role_name')
     \gexec
 
-    GRANT ALL ON DATABASE :"tenant"_ai TO :"tenant"_ai;
+    SELECT format('GRANT ALL ON DATABASE %I TO %I;', :'dbname', :'role_name') \gexec;
 
-    ALTER DEFAULT PRIVILEGES IN SCHEMA public
-        GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO :"tenant"_ai;
+    SELECT format(
+        'ALTER DEFAULT PRIVILEGES IN SCHEMA public ' ||
+        'GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO %I;',
+        :'role_name'
+    ) \gexec;
 \endif
 
 -- ------------------------------------------------------------------
 -- APPLICATION block
 -- ------------------------------------------------------------------
 \if :is_application
-    \connect :"tenant"_application
+    \connect :'dbname'
 
-    SELECT format('CREATE ROLE %I', :'tenant' || '_application')
-    WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'tenant' || '_application')
+    SELECT format('CREATE ROLE %I', :'role_name')
+    WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = :'role_name')
     \gexec
 
-    GRANT ALL ON DATABASE :"tenant"_application TO :"tenant"_application;
+    SELECT format('GRANT ALL ON DATABASE %I TO %I;', :'dbname', :'role_name') \gexec;
 
-    ALTER DEFAULT PRIVILEGES IN SCHEMA public
-        GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO :"tenant"_application;
+    SELECT format(
+        'ALTER DEFAULT PRIVILEGES IN SCHEMA public ' ||
+        'GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO %I;',
+        :'role_name'
+    ) \gexec;
 \endif
 
 \echo Done granting permissions for :'tenant'_:'suffix'
-
----\connect :"tenant"_analytics
