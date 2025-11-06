@@ -222,15 +222,24 @@ jobs:
       - name: Generate Login Role Passwords
         id: gen-pass
         run: |
-          set -euo pipefail   # safety
+          set -euo pipefail
 
-          # Generate exactly 32 chars, write to a temp file first
-          gen_pw() { LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32; }
+          gen_pw() {
+            LC_ALL=C tr -dc 'A-Za-z0-9' </dev/urandom | head -c 32
+            printf '\n'
+          }
 
-          PASS_ANALYTICS=$(gen_pw); echo "PASS_ANALYTICS=$PASS_ANALYTICS" >> "$GITHUB_ENV"
-          PASS_FIVETRAN=$(gen_pw);   echo "PASS_FIVETRAN=$PASS_FIVETRAN"   >> "$GITHUB_ENV"
-          PASS_AI=$(gen_pw);         echo "PASS_AI=$PASS_AI"               >> "$GITHUB_ENV"
-          PASS_APP=$(gen_pw);        echo "PASS_APP=$PASS_APP"             >> "$GITHUB_ENV"
+          PASS_ANALYTICS=$(gen_pw)
+          echo "PASS_ANALYTICS=$PASS_ANALYTICS" >> "$GITHUB_ENV"
+
+          PASS_FIVETRAN=$(gen_pw)
+          echo "PASS_FIVETRAN=$PASS_FIVETRAN" >> "$GITHUB_ENV"
+
+          PASS_AI=$(gen_pw)
+          echo "PASS_AI=$PASS_AI" >> "$GITHUB_ENV"
+
+          PASS_APP=$(gen_pw)
+          echo "PASS_APP=$PASS_APP" >> "$GITHUB_ENV"
 
       # ──────────────────────────────────────────────────────────────
       # 2. Save All 4 Roles to Secrets Manager
