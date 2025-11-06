@@ -1,8 +1,8 @@
 -- Set boolean flags based on suffix
-\set is_analytics 0
+\set is_analytics false
 
-\if :'suffix' = 'analytics'
-    \set is_analytics 1
+\if :suffix = analytics
+    \set is_analytics true
 \endif
 
 -- Schema creation only for analytics
