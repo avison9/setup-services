@@ -1,10 +1,8 @@
 -- 02_create_login.sql
--- Creates a login role if it doesn’t exist
--- Called with: -v tenant=oraion -v suffix=analytics -v password=somepass
+-- Idempotent role creation
 
 \echo Creating login role for :'tenant'-:'suffix'
 
--- Create role if missing
 SELECT format(
   'CREATE ROLE %I WITH LOGIN PASSWORD %L',
   :'tenant' || '-' || :'suffix',
