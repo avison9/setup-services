@@ -14,7 +14,7 @@ SELECT
 \gset
 
 \if :is_analytics
-    \connect ":tenant-analytics"
+    \connect :"tenant"_analytics
 
     CREATE SCHEMA IF NOT EXISTS raw;
     CREATE SCHEMA IF NOT EXISTS dwh;
