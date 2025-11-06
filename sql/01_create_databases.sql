@@ -4,23 +4,21 @@
 
 DO $$
 DECLARE
+   tenant_name TEXT := current_setting('tenant');
    db_name TEXT;
 BEGIN
-   -- analytics
-   db_name := :'tenant' || '-analytics';
+   db_name := tenant_name || '-analytics';
    IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = db_name) THEN
-      EXECUTE 'CREATE DATABASE "' || db_name || '"';
+      EXECUTE format('CREATE DATABASE %I', db_name);
    END IF;
 
-   -- ai
-   db_name := :'tenant' || '-ai';
+   db_name := tenant_name || '-ai';
    IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = db_name) THEN
-      EXECUTE 'CREATE DATABASE "' || db_name || '"';
+      EXECUTE format('CREATE DATABASE %I', db_name);
    END IF;
 
-   -- application
-   db_name := :'tenant' || '-application';
+   db_name := tenant_name || '-application';
    IF NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = db_name) THEN
-      EXECUTE 'CREATE DATABASE "' || db_name || '"';
+      EXECUTE format('CREATE DATABASE %I', db_name);
    END IF;
 END $$;
