@@ -5,7 +5,7 @@
 \echo Applying grants for tenant :'tenant' / suffix :'suffix'
 
 -- ANALYTICS
-\if :suffix = 'analytics'
+\if :suffix = analytics
 \connect :"tenant"-analytics
 
 SELECT format('CREATE ROLE %I', :'tenant' || '-' || :'suffix')
@@ -15,13 +15,13 @@ WHERE NOT EXISTS (
 
 GRANT ALL ON DATABASE :"tenant"-analytics TO :"tenant"-:"suffix";
 
-ALTER DEFAULT PRIVILEGES IN SCHEMA public, staging, processed, reporting
+ALTER DEFAULT PRIVILEGES IN SCHEMA public, raw, dwh, data_access_layer
   GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO :"tenant"-:"suffix";
 \endif
 
 
 -- AI
-\if :suffix = 'ai'
+\if :suffix = ai
 \connect :"tenant"-ai
 
 SELECT format('CREATE ROLE %I', :'tenant' || '-' || :'suffix')
@@ -37,7 +37,7 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
 
 
 -- APPLICATION
-\if :suffix = 'application'
+\if :suffix = application
 \connect :"tenant"-application
 
 SELECT format('CREATE ROLE %I', :'tenant' || '-' || :'suffix')
