@@ -1,7 +1,6 @@
 -- ------------------------------------------------------------------
--- Schema creation – **only** for analytics
+-- Schema creation – only for analytics
 -- ------------------------------------------------------------------
--- Set default
 \set is_analytics false
 
 -- Determine if analytics
@@ -17,7 +16,8 @@ SELECT
     \set role_name :"tenant"_analytics
     \set dbname :"tenant"_analytics
 
-    \connect :'dbname'
+    -- correct: no quotes around variable
+    \connect :dbname
 
     CREATE SCHEMA IF NOT EXISTS raw;
     CREATE SCHEMA IF NOT EXISTS dwh;
