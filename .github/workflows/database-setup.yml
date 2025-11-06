@@ -250,13 +250,19 @@ jobs:
           SECRET="tenant-role-${NAME}"
           PAYLOAD="{\"username\":\"$NAME\",\"password\":\"$PASS_ANALYTICS\"}"
 
+          # Create secret with description + tags (only on first run)
+          aws secretsmanager create-secret \
+            --name "$SECRET" \
+            --secret-string "$PAYLOAD" \
+            --description "Primary login for $NAME DB" \
+            --tags 'Key=tenant,Value=${TENANT}' 'Key=db,Value=analytics' 'Key=purpose,Value=primary' \
+            || true   # ignore if already exists
+
+          # Always update the secret value (overwrites password)
           aws secretsmanager put-secret-value \
             --secret-id "$SECRET" \
             --secret-string "$PAYLOAD" \
-            --description "Primary login for $NAME DB" \
-            --tags Key=tenant,Value=$TENANT Key=db,Value=analytics Key=purpose,Value=primary \
-            --version-stages AWSCURRENT \
-            || true   # ignore “secret does not exist” on first run (it will be created)
+            --version-stages AWSCURRENT
 
       - name: Save Fivetran Role
         run: |
@@ -264,13 +270,17 @@ jobs:
           SECRET="tenant-role-${NAME}"
           PAYLOAD="{\"username\":\"$NAME\",\"password\":\"$PASS_FIVETRAN\"}"
 
+          aws secretsmanager create-secret \
+            --name "$SECRET" \
+            --secret-string "$PAYLOAD" \
+            --description "Fivetran sync role for $TENANT-analytics DB" \
+            --tags 'Key=tenant,Value=${TENANT}' 'Key=db,Value=analytics' 'Key=purpose,Value=fivetran' \
+            || true
+
           aws secretsmanager put-secret-value \
             --secret-id "$SECRET" \
             --secret-string "$PAYLOAD" \
-            --description "Fivetran sync role for $TENANT-analytics DB" \
-            --tags Key=tenant,Value=$TENANT Key=db,Value=analytics Key=purpose,Value=fivetran \
-            --version-stages AWSCURRENT \
-            || true
+            --version-stages AWSCURRENT
 
       - name: Save AI Role
         run: |
@@ -278,13 +288,17 @@ jobs:
           SECRET="tenant-role-${NAME}"
           PAYLOAD="{\"username\":\"$NAME\",\"password\":\"$PASS_AI\"}"
 
+          aws secretsmanager create-secret \
+            --name "$SECRET" \
+            --secret-string "$PAYLOAD" \
+            --description "Login for $NAME DB" \
+            --tags 'Key=tenant,Value=${TENANT}' 'Key=db,Value=ai' \
+            || true
+
           aws secretsmanager put-secret-value \
             --secret-id "$SECRET" \
             --secret-string "$PAYLOAD" \
-            --description "Login for $NAME DB" \
-            --tags Key=tenant,Value=$TENANT Key=db,Value=ai \
-            --version-stages AWSCURRENT \
-            || true
+            --version-stages AWSCURRENT
 
       - name: Save Application Role
         run: |
@@ -292,20 +306,24 @@ jobs:
           SECRET="tenant-role-${NAME}"
           PAYLOAD="{\"username\":\"$NAME\",\"password\":\"$PASS_APP\"}"
 
+          aws secretsmanager create-secret \
+            --name "$SECRET" \
+            --secret-string "$PAYLOAD" \
+            --description "Login for $NAME DB" \
+            --tags 'Key=tenant,Value=${TENANT}' 'Key=db,Value=application' \
+            || true
+
           aws secretsmanager put-secret-value \
             --secret-id "$SECRET" \
             --secret-string "$PAYLOAD" \
-            --description "Login for $NAME DB" \
-            --tags Key=tenant,Value=$TENANT Key=db,Value=application \
-            --version-stages AWSCURRENT \
-            || true
+            --version-stages AWSCURRENT
 
       # ──────────────────────────────────────────────────────────────
       # 3. Get DB Admin Credentials (Dynamic)
       # ──────────────────────────────────────────────────────────────
       - name: Get DB Admin Credentials
         run: |
-          SECRET_NAME="prod-${TENANT}-client-rds-connection"
+          SECRET_NAME="prod-${TENANT}-database-rds-connection"
           CREDS=$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --query SecretString --output text)
           ADMIN_USER=$(echo "$CREDS" | jq -r .username)
           ADMIN_PASS=$(echo "$CREDS" | jq -r .password)
