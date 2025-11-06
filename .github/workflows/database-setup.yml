@@ -1,174 +1,3 @@
-# name: Database Setup (Manual Test - Dual Roles)
-
-# on:
-#   workflow_dispatch:
-#     inputs:
-#       tenant:
-#         description: 'Tenant name (e.g. acme)'
-#         required: true
-#         type: string
-#       suffix1:
-#         description: 'First role suffix (e.g. app)'
-#         required: true
-#         type: string
-#       suffix2:
-#         description: 'Second role suffix (e.g. worker)'
-#         required: true
-#         type: string
-#       bastion_ip:
-#         description: 'Bastion Host Public IP'
-#         required: true
-#         type: string
-#       db_endpoint:
-#         description: 'RDS Endpoint (without port)'
-#         required: true
-#         type: string
-
-# jobs:
-#   db-setup:
-#     runs-on: ubuntu-latest
-#     environment: production
-
-#     env:
-#       TENANT: ${{ inputs.tenant }}
-#       SUFFIX1: ${{ inputs.suffix1 }}
-#       SUFFIX2: ${{ inputs.suffix2 }}
-#       BASTION_IP: ${{ inputs.bastion_ip }}
-#       DB_ENDPOINT: ${{ inputs.db_endpoint }}
-
-#     steps:
-#       - name: Validate Inputs
-#         run: |
-#           for var in TENANT SUFFIX1 SUFFIX2 BASTION_IP DB_ENDPOINT; do
-#             if [[ -z "${!var}" ]]; then echo "Missing $var"; exit 1; fi
-#           done
-#           echo "Setting up tenant: $TENANT | Roles: $SUFFIX1, $SUFFIX2"
-
-#       - name: Checkout Repository
-#         uses: actions/checkout@v4
-
-#       - name: Configure AWS Credentials
-#         uses: aws-actions/configure-aws-credentials@v4
-#         with:
-#           aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY }}
-#           aws-secret-access-key: ${{ secrets.AWS_SECRET_KEY }}
-#           aws-region: eu-north-1
-
-#       # ──────────────────────────────────────────────────────────────
-#       # 1. Generate Two 32-Char Alphanumeric Passwords
-#       # ──────────────────────────────────────────────────────────────
-#       - name: Generate Role Passwords
-#         id: gen-pass
-#         run: |
-#           PASS1=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)
-#           PASS2=$(LC_ALL=C tr -dc 'A-Za-z0-9' < /dev/urandom | head -c 32)
-#           echo "PASS1=$PASS1" >> $GITHUB_ENV
-#           echo "PASS2=$PASS2" >> $GITHUB_ENV
-
-#       # ──────────────────────────────────────────────────────────────
-#       # 2. Save Role Credentials to Secrets Manager
-#       # ──────────────────────────────────────────────────────────────
-#       - name: Save Role 1 to Secrets Manager
-#         run: |
-#           SECRET_NAME="tenant-role-${TENANT}-${SUFFIX1}"
-#           aws secretsmanager create-secret \
-#             --name "$SECRET_NAME" \
-#             --secret-string "{\"username\":\"${TENANT}-${SUFFIX1}\",\"password\":\"$PASS1\"}" \
-#             --description "Auto-generated for $TENANT-$SUFFIX1" \
-#             --tags Key=tenant,Value=$TENANT Key=role,Value=$SUFFIX1 \
-#             --overwrite || true
-#           aws secretsmanager update-secret \
-#             --secret-id "$SECRET_NAME" \
-#             --secret-string "{\"username\":\"${TENANT}-${SUFFIX1}\",\"password\":\"$PASS1\"}"
-
-#       - name: Save Role 2 to Secrets Manager
-#         run: |
-#           SECRET_NAME="tenant-role-${TENANT}-${SUFFIX2}"
-#           aws secretsmanager create-secret \
-#             --name "$SECRET_NAME" \
-#             --secret-string "{\"username\":\"${TENANT}-${SUFFIX2}\",\"password\":\"$PASS2\"}" \
-#             --description "Auto-generated for $TENANT-$SUFFIX2" \
-#             --tags Key=tenant,Value=$TENANT Key=role,Value=$SUFFIX2 \
-#             --overwrite || true
-#           aws secretsmanager update-secret \
-#             --secret-id "$SECRET_NAME" \
-#             --secret-string "{\"username\":\"${TENANT}-${SUFFIX2}\",\"password\":\"$PASS2\"}"
-
-#       # ──────────────────────────────────────────────────────────────
-#       # 3. Get DB Admin Credentials (DYNAMIC: prod-<tenant>-client-rds-connection)
-#       # ──────────────────────────────────────────────────────────────
-#       - name: Get DB Admin Credentials
-#         run: |
-#           SECRET_NAME="prod-${TENANT}-database-rds-connection"
-#           CREDS=$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --query SecretString --output text)
-#           ADMIN_USER=$(echo "$CREDS" | jq -r .username)
-#           ADMIN_PASS=$(echo "$CREDS" | jq -r .password)
-#           echo "ADMIN_USER=$ADMIN_USER" >> $GITHUB_ENV
-#           echo "ADMIN_PASS=$ADMIN_PASS" >> $GITHUB_ENV
-
-#       # ──────────────────────────────────────────────────────────────
-#       # 4. Install Tools & Get Bastion Key (FIXED PATH)
-#       # ──────────────────────────────────────────────────────────────
-#       - name: Install Tools & Bastion Key
-#         run: |
-#           sudo apt-get update -y
-#           sudo apt-get install -y postgresql-client openssh-client tar gzip jq
-#           PEM=$(aws ssm get-parameter --name "/bastion/prod/db-admin/private-key" --with-decryption --query "Parameter.Value" --output text)
-#           echo "$PEM" > bastion.pem
-#           chmod 400 bastion.pem
-
-#       # ──────────────────────────────────────────────────────────────
-#       # 5. Run All 4 SQL Scripts in Order
-#       # ──────────────────────────────────────────────────────────────
-#       - name: Execute SQL via Bastion
-#         run: |
-#           mkdir -p sql_bundle
-#           cp sql/01_create_databases.sql \
-#              sql/02_create_login.sql \
-#              sql/03_grant_permissions.sql \
-#              sql/04_create_schemas.sql \
-#              sql_bundle/
-
-#           tar -czf sql_bundle.tar.gz sql_bundle/
-#           scp -o StrictHostKeyChecking=no -i bastion.pem sql_bundle.tar.gz ec2-user@$BASTION_IP:/tmp/
-
-#           ssh -o StrictHostKeyChecking=no -i bastion.pem ec2-user@$BASTION_IP << EOF
-#             set -e
-#             cd /tmp
-#             tar -xzf sql_bundle.tar.gz
-
-#             export PGPASSWORD='$ADMIN_PASS'
-#             export PSQL="psql -h $DB_ENDPOINT -U $ADMIN_USER -d postgres -v ON_ERROR_STOP=1"
-
-#             # 1. Create databases (tenant only, no suffix)
-#             echo "Creating databases for tenant: $TENANT"
-#             \$PSQL -v tenant="$TENANT" -f sql_bundle/01_create_databases.sql
-
-#             # 2. Create role 1
-#             echo "Creating role: $TENANT-$SUFFIX1"
-#             \$PSQL -v tenant="$TENANT" -v suffix="$SUFFIX1" -v password="$PASS1" -f sql_bundle/02_create_login.sql
-
-#             # 3. Create role 2
-#             echo "Creating role: $TENANT-$SUFFIX2"
-#             \$PSQL -v tenant="$TENANT" -v suffix="$SUFFIX2" -v password="$PASS2" -f sql_bundle/02_create_login.sql
-
-#             # 4. Grant permissions for role 1
-#             echo "Granting permissions for $TENANT-$SUFFIX1"
-#             \$PSQL -v tenant="$TENANT" -v suffix="$SUFFIX1" -f sql_bundle/03_grant_permissions.sql
-
-#             # 5. Grant permissions for role 2
-#             echo "Granting permissions for $TENANT-$SUFFIX2"
-#             \$PSQL -v tenant="$TENANT" -v suffix="$SUFFIX2" -f sql_bundle/03_grant_permissions.sql
-
-#             # 6. Create schemas for role 1
-#             echo "Creating schemas for $TENANT-$SUFFIX1"
-#             \$PSQL -v tenant="$TENANT" -v suffix="$SUFFIX1" -f sql_bundle/04_create_schemas.sql
-
-#             echo "All setup complete for tenant: $TENANT"
-#           EOF
-
-
-
 name: Database Setup
 
 on:
@@ -319,17 +148,8 @@ jobs:
             --version-stages AWSCURRENT
 
       # ──────────────────────────────────────────────────────────────
-      # 3. Get DB Admin Credentials (Dynamic)
+      # 3. Get DB Admin Credentials
       # ──────────────────────────────────────────────────────────────
-      # - name: Get DB Admin Credentials
-      #   run: |
-      #     SECRET_NAME="prod-${TENANT}-database-rds-connection"
-      #     CREDS=$(aws secretsmanager get-secret-value --secret-id "$SECRET_NAME" --query SecretString --output text)
-      #     ADMIN_USER=$(echo "$CREDS" | jq -r .username)
-      #     ADMIN_PASS=$(echo "$CREDS" | jq -r .password)
-      #     echo "ADMIN_USER=$ADMIN_USER" >> $GITHUB_ENV
-      #     echo "ADMIN_PASS=$ADMIN_PASS" >> $GITHUB_ENV
-
       - name: Get DB Admin Credentials
         run: |
           SECRET_NAME="prod-${TENANT}-database-rds-connection"
@@ -353,45 +173,42 @@ jobs:
       # ──────────────────────────────────────────────────────────────
       # 4. Install Tools & Get Bastion Key
       # ──────────────────────────────────────────────────────────────
-      # - name: Install Tools & Bastion Key
-      #   run: |
-      #     sudo apt-get update -y
-      #     sudo apt-get install -y postgresql-client openssh-client tar gzip jq
-      #     PEM=$(aws ssm get-parameter --name "/bastion/prod/db-admin/private-key" --with-decryption --query "Parameter.Value" --output text)
-      #     echo "$PEM" > bastion.pem
-      #     chmod 400 bastion.pem
-
-      - name: Install Tools & Prepare Bastion Key
+      - name: Install Tools & Prepare Bastion Access
         run: |
+          set -euo pipefail
           sudo apt-get update -y
           sudo apt-get install -y postgresql-client openssh-client tar gzip jq
 
-          # Get private key
-          PEM=$(aws ssm get-parameter --name "/bastion/prod/db-admin/private-key" --with-decryption --query "Parameter.Value" --output text)
+          # 1. Get private key from SSM
+          PEM=$(aws ssm get-parameter \
+            --name "/bastion/prod/db-admin/private-key" \
+            --with-decryption --query "Parameter.Value" --output text)
+
           echo "$PEM" > bastion.pem
           chmod 400 bastion.pem
 
-          # Derive public key
-          PUB=$(ssh-keygen -y -f bastion.pem | awk '{print $1" "$2" db-admin-key"}')
+          # 2. Derive public key from THIS EXACT private key
+          PUB_KEY=$(ssh-keygen -y -f bastion.pem | awk '{print $1" "$2" db-admin-key"}')
 
-          # Add public key to bastion via SSM (idempotent)
+          # 3. Add to bastion via SSM (idempotent)
+          INSTANCE_ID=$(aws ec2 describe-instances \
+            --filters "Name=ip-address,Values=$BASTION_IP" "Name=instance-state-name,Values=running" \
+            --query "Reservations[].Instances[].InstanceId" --output text)
+
           aws ssm send-command \
             --document-name "AWS-RunShellScript" \
-            --targets '[{"Key":"tag:Name","Values":["bastion-prod"]}]' \
-            --parameters '{
-              "commands": [
-                "mkdir -p /home/ubuntu/.ssh",
-                "echo \"$PUB\" >> /home/ubuntu/.ssh/authorized_keys",
-                "chmod 600 /home/ubuntu/.ssh/authorized_keys",
-                "chown -R ubuntu:ubuntu /home/ubuntu/.ssh"
-              ]
-            }' \
-            --comment "Add db-admin public key" \
-            --timeout-seconds 60 \
-            --max-concurrency "1" \
-            --max-errors "0"
+            --targets "[{\"Key\":\"InstanceIds\",\"Values\":[\"$INSTANCE_ID\"]}]" \
+            --parameters "commands=[
+              \"mkdir -p /home/ubuntu/.ssh\",
+              \"echo '$PUB_KEY' >> /home/ubuntu/.ssh/authorized_keys\",
+              \"sort -u /home/ubuntu/.ssh/authorized_keys -o /home/ubuntu/.ssh/authorized_keys\",
+              \"chmod 600 /home/ubuntu/.ssh/authorized_keys\",
+              \"chown -R ubuntu:ubuntu /home/ubuntu/.ssh\"
+            ]" \
+            --comment "Add db-admin SSH key" \
+            --timeout-seconds 60
 
-          echo "Public key added to bastion"
+          echo "Public key added to bastion (Instance ID: $INSTANCE_ID)"
 
       # ──────────────────────────────────────────────────────────────
       # 5. Execute SQL via Bastion
