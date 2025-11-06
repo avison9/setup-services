@@ -2,7 +2,7 @@
 -- Connects to correct DB, creates local role, grants access
 -- Called with: -v tenant=oraion -v suffix=analytics
 
--- analytics DB
+-- analytics
 \c :"tenant"-analytics
 DO $$
 BEGIN
@@ -14,7 +14,7 @@ BEGIN
          GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO :"tenant-suffix";
 END $$;
 
--- ai DB
+-- ai
 \c :"tenant"-ai
 DO $$
 BEGIN
@@ -26,7 +26,7 @@ BEGIN
          GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO :"tenant-suffix";
 END $$;
 
--- application DB
+-- application
 \c :"tenant"-application
 DO $$
 BEGIN

@@ -6,5 +6,4 @@ CREATE SCHEMA IF NOT EXISTS raw;
 CREATE SCHEMA IF NOT EXISTS dwh;
 CREATE SCHEMA IF NOT EXISTS data_access_layer;
 
--- Set default search_path for the DB-local role
 ALTER ROLE :"tenant-suffix" SET search_path TO raw, dwh, data_access_layer, public;
